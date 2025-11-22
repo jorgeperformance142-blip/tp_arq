@@ -20,6 +20,38 @@ class ClientesController extends Controller
         return view('clientes.index', compact('clientes','q','estado','perPage'));
     }
 
+    public function segmentacion(Request $request)
+    {
+        $filters = $request->validate([
+            'q'            => ['nullable','string','max:120'],
+            'estado'       => ['nullable','in:0,1'],
+            'edad_min'     => ['nullable','integer','min:0','max:120'],
+            'edad_max'     => ['nullable','integer','min:0','max:120'],
+            'nacionalidad' => ['nullable','string','max:80'],
+            'monto_min'    => ['nullable','numeric','min:0'],
+            'monto_max'    => ['nullable','numeric','min:0'],
+            'compras_min'  => ['nullable','integer','min:0'],
+            'puntos_min'   => ['nullable','integer','min:0'],
+            'orden'        => ['nullable','in:monto_desc,compras_desc,puntos_desc,edad_desc,recientes'],
+            'per_page'     => ['nullable','integer','in:10,25,50'],
+        ]);
+
+        $filters['orden'] = $filters['orden'] ?? 'monto_desc';
+        $filters['q']     = $filters['q'] ?? '';
+
+        $perPage  = (int) ($filters['per_page'] ?? 10) ?: 10;
+        $clientes = $this->svc->segmentar($filters, $perPage)->appends($request->query());
+
+        $nacionalidades = $this->svc->nacionalidades();
+
+        return view('clientes.segmentacion', [
+            'clientes'       => $clientes,
+            'filters'        => $filters,
+            'nacionalidades' => $nacionalidades,
+            'perPage'        => $perPage,
+        ]);
+    }
+
     public function create()
     {
         return view('clientes.create');

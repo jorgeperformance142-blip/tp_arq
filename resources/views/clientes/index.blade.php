@@ -32,6 +32,11 @@
     </select>
 
     <button class="bg-slate-900 text-white text-sm px-3 py-2 rounded-md hover:bg-slate-800">Filtrar</button>
+    <a href="{{ route('clientes.segmentacion') }}"
+       class="inline-flex items-center gap-2 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg hover:bg-slate-50"
+       title="Crear segmentaciones según edad, ubicación o historial de compras">
+       🧩 Segmentar clientes
+    </a>
     <a href="{{ route('clientes.create') }}"
         class="inline-flex items-center gap-2 bg-slate-900 text-white text-sm px-3 py-2 rounded-lg hover:bg-slate-800">
         ＋ Nuevo Cliente

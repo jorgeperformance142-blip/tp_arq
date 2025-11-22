@@ -73,4 +73,87 @@ class ClientesService
     {
         DB::table('clientes')->where('id',$id)->delete();
     }
+
+    public function nacionalidades(): array
+    {
+        return DB::table('clientes')
+            ->whereNotNull('nacionalidad')
+            ->where('nacionalidad','<>','')
+            ->distinct()
+            ->orderBy('nacionalidad')
+            ->pluck('nacionalidad')
+            ->toArray();
+    }
+
+    public function segmentar(array $filters, int $perPage = 10)
+    {
+        $compras = DB::table('bolsas_puntos')
+            ->select(
+                'cliente_id',
+                DB::raw('COALESCE(SUM(monto_operacion),0) as monto_total'),
+                DB::raw('COUNT(*) as operaciones'),
+                DB::raw('COALESCE(SUM(puntaje_asignado),0) as puntos_asignados')
+            )
+            ->groupBy('cliente_id');
+
+        $query = DB::table('clientes as c')
+            ->leftJoinSub($compras, 'b', 'b.cliente_id', '=', 'c.id')
+            ->select(
+                'c.id','c.nombre','c.apellido','c.numero_documento','c.nacionalidad','c.email','c.telefono','c.activo',
+                DB::raw('TIMESTAMPDIFF(YEAR, c.fecha_nacimiento, CURDATE()) as edad'),
+                DB::raw('COALESCE(b.monto_total,0) as monto_total'),
+                DB::raw('COALESCE(b.operaciones,0) as compras'),
+                DB::raw('COALESCE(b.puntos_asignados,0) as puntos_asignados')
+            )
+            ->when(($filters['q'] ?? '') !== '', function ($sql) use ($filters) {
+                $like = '%'.$filters['q'].'%';
+                $sql->where(function($w) use ($like) {
+                    $w->where('c.nombre','like',$like)
+                      ->orWhere('c.apellido','like',$like)
+                      ->orWhere('c.email','like',$like)
+                      ->orWhere('c.numero_documento','like',$like);
+                });
+            })
+            ->when(isset($filters['estado']) && $filters['estado'] !== '', fn($sql) => $sql->where('c.activo',(int)$filters['estado']))
+            ->when(array_key_exists('edad_min',$filters) && $filters['edad_min'] !== null, function ($sql) use ($filters) {
+                $sql->whereRaw('TIMESTAMPDIFF(YEAR, c.fecha_nacimiento, CURDATE()) >= ?', [(int)$filters['edad_min']]);
+            })
+            ->when(array_key_exists('edad_max',$filters) && $filters['edad_max'] !== null, function ($sql) use ($filters) {
+                $sql->whereRaw('TIMESTAMPDIFF(YEAR, c.fecha_nacimiento, CURDATE()) <= ?', [(int)$filters['edad_max']]);
+            })
+            ->when(($filters['nacionalidad'] ?? '') !== '', fn($sql) => $sql->where('c.nacionalidad', $filters['nacionalidad']))
+            ->when(array_key_exists('monto_min',$filters) && $filters['monto_min'] !== null, function ($sql) use ($filters) {
+                $sql->whereRaw('COALESCE(b.monto_total,0) >= ?', [$filters['monto_min']]);
+            })
+            ->when(array_key_exists('monto_max',$filters) && $filters['monto_max'] !== null, function ($sql) use ($filters) {
+                $sql->whereRaw('COALESCE(b.monto_total,0) <= ?', [$filters['monto_max']]);
+            })
+            ->when(array_key_exists('compras_min',$filters) && $filters['compras_min'] !== null, function ($sql) use ($filters) {
+                $sql->whereRaw('COALESCE(b.operaciones,0) >= ?', [$filters['compras_min']]);
+            })
+            ->when(array_key_exists('puntos_min',$filters) && $filters['puntos_min'] !== null, function ($sql) use ($filters) {
+                $sql->whereRaw('COALESCE(b.puntos_asignados,0) >= ?', [$filters['puntos_min']]);
+            });
+
+        switch ($filters['orden'] ?? 'monto_desc') {
+            case 'compras_desc':
+                $query->orderByDesc('compras');
+                break;
+            case 'puntos_desc':
+                $query->orderByDesc('puntos_asignados');
+                break;
+            case 'edad_desc':
+                $query->orderByDesc('edad');
+                break;
+            case 'recientes':
+                $query->orderByDesc('c.fecha_alta');
+                break;
+            default:
+                $query->orderByDesc('monto_total');
+        }
+
+        $query->orderBy('c.apellido')->orderBy('c.nombre');
+
+        return $query->paginate($perPage);
+    }
 }
