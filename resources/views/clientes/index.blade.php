@@ -32,6 +32,11 @@
     </select>
 
     <button class="bg-slate-900 text-white text-sm px-3 py-2 rounded-md hover:bg-slate-800">Filtrar</button>
+    <a href="{{ route('clientes.segmentacion') }}"
+       class="inline-flex items-center gap-2 border border-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg hover:bg-slate-50"
+       title="Crear segmentaciones según edad, ubicación o historial de compras">
+       🧩 Segmentar clientes
+    </a>
     <a href="{{ route('clientes.create') }}"
         class="inline-flex items-center gap-2 bg-slate-900 text-white text-sm px-3 py-2 rounded-lg hover:bg-slate-800">
         ＋ Nuevo Cliente
@@ -49,6 +54,7 @@
             <th class="text-left px-4 py-3">Email</th>
             <th class="text-left px-4 py-3">Teléfono</th>
             <th class="text-left px-4 py-3">Puntos</th>
+            <th class="text-left px-4 py-3">Nivel</th>
             <th class="text-left px-4 py-3">Estado</th>
             <th class="text-left px-4 py-3">Acciones</th>
           </tr>
@@ -70,6 +76,12 @@
                 <span class="px-2 py-1 text-xs rounded-full border border-blue-200 bg-blue-50 text-blue-700">
                   {{ number_format($c->puntos) }} pts
                 </span>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-1 text-xs rounded-full border border-amber-200 bg-amber-50 text-amber-700">{{ $c->nivel['nombre'] }}</span>
+                  <span class="text-xs text-slate-500">{{ $c->nivel['progreso'] }}% progreso</span>
+                </div>
               </td>
               <td class="px-4 py-3">
                 @if ($c->activo)
