@@ -7,44 +7,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class ClientesService
 {
-    private array $niveles = [
-        [
-            'slug'       => 'bronce',
-            'nombre'     => 'Bronce',
-            'min'        => 0,
-            'beneficios' => [
-                'Acumulación estándar de puntos en compras',
-                'Acceso a campañas y promociones generales',
-            ],
-        ],
-        [
-            'slug'       => 'plata',
-            'nombre'     => 'Plata',
-            'min'        => 1_000,
-            'beneficios' => [
-                'Prioridad en atención y envíos',
-                'Ofertas exclusivas mensuales',
-            ],
-        ],
-        [
-            'slug'       => 'oro',
-            'nombre'     => 'Oro',
-            'min'        => 5_000,
-            'beneficios' => [
-                'Bonificación de puntos por compra recurrente',
-                'Acceso anticipado a lanzamientos y eventos',
-            ],
-        ],
-        [
-            'slug'       => 'platino',
-            'nombre'     => 'Platino',
-            'min'        => 10_000,
-            'beneficios' => [
-                'Mayor multiplicador de puntos',
-                'Beneficios VIP y experiencias exclusivas',
-            ],
-        ],
-    ];
+    public function __construct(private NivelesService $nivelesSvc) {}
 
     // LISTADO con búsqueda, filtro y saldo desde vista
     public function listar(string $q = '', $estado = null, int $perPage = 10)
@@ -133,11 +96,6 @@ class ClientesService
             ->toArray();
     }
 
-    public function niveles(): array
-    {
-        return $this->niveles;
-    }
-
     public function segmentar(array $filters, int $perPage = 10)
     {
         $compras = DB::table('bolsas_puntos')
@@ -215,45 +173,12 @@ class ClientesService
     private function adjuntarNivel(object $cliente): object
     {
         $puntos = (int) ($cliente->puntos ?? $cliente->puntos_asignados ?? 0);
-        $niveles = $this->niveles;
+        $nivel = $this->nivelesSvc->nivelParaPuntos($puntos);
 
-        $actual = $niveles[0];
-        $siguiente = null;
-
-        foreach ($niveles as $i => $nivel) {
-            if ($puntos >= $nivel['min']) {
-                $actual = $nivel;
-                $siguiente = $niveles[$i + 1] ?? null;
-            }
-        }
-
-        $cliente->nivel = [
-            'clave'       => $actual['slug'],
-            'nombre'      => $actual['nombre'],
-            'minimo'      => $actual['min'],
-            'beneficios'  => $actual['beneficios'],
-            'progreso'    => $this->calcularProgreso($puntos, $actual, $siguiente),
-            'siguiente'   => $siguiente ? [
-                'nombre'  => $siguiente['nombre'],
-                'minimo'  => $siguiente['min'],
-                'faltan'  => max($siguiente['min'] - $puntos, 0),
-            ] : null,
-        ];
+        $cliente->nivel = $nivel;
+        $cliente->nivel_id = $nivel['id'] ?? null;
 
         return $cliente;
-    }
-
-    private function calcularProgreso(int $puntos, array $actual, ?array $siguiente): int
-    {
-        if ($siguiente === null) {
-            return 100;
-        }
-
-        $base = $actual['min'];
-        $toNext = max($siguiente['min'] - $base, 1);
-        $avance = max($puntos - $base, 0);
-
-        return (int) min(100, round(($avance / $toNext) * 100));
     }
 
     private function adjuntarNivelAPaginador(LengthAwarePaginator $paginator): LengthAwarePaginator
