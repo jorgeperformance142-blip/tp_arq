@@ -2,12 +2,17 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class ClientesService
 {
-    public function __construct(private NivelesService $nivelesSvc) {}
+    public function __construct(
+        private NivelesService $nivelesSvc,
+        private BolsasService $bolsasSvc,
+    ) {}
 
     // LISTADO con búsqueda, filtro y saldo desde vista
     public function listar(string $q = '', $estado = null, int $perPage = 10)
@@ -16,7 +21,7 @@ class ClientesService
             ->leftJoin('vw_saldo_puntos_cliente as v', 'v.cliente_id', '=', 'c.id')
             ->select(
                 'c.id','c.nombre','c.apellido','c.numero_documento','c.tipo_documento',
-                'c.nacionalidad','c.email','c.telefono','c.fecha_nacimiento','c.activo',
+                'c.nacionalidad','c.email','c.telefono','c.fecha_nacimiento','c.activo','c.codigo_referido',
                 DB::raw('COALESCE(v.saldo_total,0) as puntos')
             )
             ->when($q !== '', function ($sql) use ($q) {
@@ -40,7 +45,13 @@ class ClientesService
     {
         $cliente = DB::table('clientes as c')
             ->leftJoin('vw_saldo_puntos_cliente as v', 'v.cliente_id', '=', 'c.id')
-            ->select('c.*', DB::raw('COALESCE(v.saldo_total,0) as puntos'))
+            ->leftJoin('clientes as ref','ref.id','=','c.referido_por_id')
+            ->select(
+                'c.*',
+                DB::raw('COALESCE(v.saldo_total,0) as puntos'),
+                DB::raw("CONCAT(ref.nombre,' ',ref.apellido) as referido_por_nombre"),
+                'ref.codigo_referido as referido_por_codigo'
+            )
             ->where('c.id',$id)
             ->first();
 
@@ -48,19 +59,29 @@ class ClientesService
     }
 
     // CREAR
-    public function crear(array $data): int
+    public function crear(array $data, ?string $codigoReferente = null): int
     {
-        return (int) DB::table('clientes')->insertGetId([
-            'nombre'           => $data['nombre'],
-            'apellido'         => $data['apellido'],
-            'numero_documento' => $data['numero_documento'] ?? null,
-            'tipo_documento'   => $data['tipo_documento']   ?? null,
-            'nacionalidad'     => $data['nacionalidad']     ?? null,
-            'email'            => $data['email']            ?? null,
-            'telefono'         => $data['telefono']         ?? null,
-            'fecha_nacimiento' => $data['fecha_nacimiento'] ?? null,
-            'activo'           => !empty($data['activo']) ? 1 : 0,
-        ]);
+        return DB::transaction(function () use ($data, $codigoReferente) {
+            $referidoPorId = $this->buscarReferentePorCodigo($codigoReferente);
+
+            $id = (int) DB::table('clientes')->insertGetId([
+                'nombre'           => $data['nombre'],
+                'apellido'         => $data['apellido'],
+                'numero_documento' => $data['numero_documento'] ?? null,
+                'tipo_documento'   => $data['tipo_documento']   ?? null,
+                'nacionalidad'     => $data['nacionalidad']     ?? null,
+                'email'            => $data['email']            ?? null,
+                'telefono'         => $data['telefono']         ?? null,
+                'fecha_nacimiento' => $data['fecha_nacimiento'] ?? null,
+                'activo'           => !empty($data['activo']) ? 1 : 0,
+                'codigo_referido'  => $this->generarCodigoReferido(),
+                'referido_por_id'  => $referidoPorId,
+            ]);
+
+            $this->bonificarPorReferencia($referidoPorId, $id);
+
+            return $id;
+        });
     }
 
     // ACTUALIZAR
@@ -188,5 +209,56 @@ class ClientesService
         );
 
         return $paginator;
+    }
+
+    private function generarCodigoReferido(): string
+    {
+        do {
+            $codigo = Str::upper(Str::random(10));
+            $exists = DB::table('clientes')->where('codigo_referido', $codigo)->exists();
+        } while ($exists);
+
+        return $codigo;
+    }
+
+    private function buscarReferentePorCodigo(?string $codigo): ?int
+    {
+        if (!$codigo) {
+            return null;
+        }
+
+        $codigo = Str::upper(trim($codigo));
+
+        return DB::table('clientes')
+            ->where('codigo_referido', $codigo)
+            ->value('id');
+    }
+
+    private function bonificarPorReferencia(?int $referenteId, int $nuevoClienteId): void
+    {
+        if (!$referenteId) {
+            return;
+        }
+
+        $puntos = (int) config('loyalty.referral_bonus_points', 0);
+        if ($puntos <= 0) {
+            return;
+        }
+
+        $fecha = Carbon::today()->toDateString();
+
+        $this->bolsasSvc->crearBonificacion(
+            clienteId: $referenteId,
+            puntos: $puntos,
+            fechaAsignacion: $fecha,
+            origen: 'Bonus por referido',
+        );
+
+        $this->bolsasSvc->crearBonificacion(
+            clienteId: $nuevoClienteId,
+            puntos: $puntos,
+            fechaAsignacion: $fecha,
+            origen: 'Bienvenida por referido',
+        );
     }
 }

@@ -26,6 +26,11 @@
       <div><dt class="text-xs text-gray-500">Teléfono</dt><dd class="text-gray-800">{{ $c->telefono ?? '—' }}</dd></div>
       <div><dt class="text-xs text-gray-500">Nacimiento</dt><dd class="text-gray-800">{{ $c->fecha_nacimiento ?? '—' }}</dd></div>
       <div><dt class="text-xs text-gray-500">Estado</dt><dd class="text-gray-800">{{ $c->activo ? 'Activo' : 'Inactivo' }}</dd></div>
+      <div><dt class="text-xs text-gray-500">Código de referido</dt><dd class="text-gray-800">{{ $c->codigo_referido }}</dd></div>
+      <div>
+        <dt class="text-xs text-gray-500">Referido por</dt>
+        <dd class="text-gray-800">{{ $c->referido_por_nombre ? $c->referido_por_nombre.' ('.$c->referido_por_codigo.')' : '—' }}</dd>
+      </div>
     </dl>
 
     <div class="mt-6">
