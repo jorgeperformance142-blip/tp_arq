@@ -86,7 +86,7 @@ class ReglasAsignacionController extends Controller
 
         $v['activo'] = $request->boolean('activo') ? 1 : 0;
         if ($v['limite_superior'] === null || $v['limite_superior'] === '') {
-            $$v['limite_superior'] = null; // ∞
+            $v['limite_superior'] = null; // ∞
         }
 
         return $v;
