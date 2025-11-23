@@ -52,6 +52,13 @@ class ClientesController extends Controller
         ]);
     }
 
+    public function niveles()
+    {
+        $niveles = $this->svc->niveles();
+
+        return view('clientes.niveles', compact('niveles'));
+    }
+
     public function create()
     {
         return view('clientes.create');

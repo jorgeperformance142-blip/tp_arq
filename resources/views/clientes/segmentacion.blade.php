@@ -125,6 +125,7 @@
             <th class="text-left px-4 py-3">Ubicación</th>
             <th class="text-left px-4 py-3">Historial de compras</th>
             <th class="text-left px-4 py-3">Puntos asignados</th>
+            <th class="text-left px-4 py-3">Nivel</th>
             <th class="text-left px-4 py-3">Estado</th>
             <th class="text-left px-4 py-3">Contacto</th>
           </tr>
@@ -146,6 +147,17 @@
                 <span class="px-2 py-1 text-xs rounded-full border border-blue-200 bg-blue-50 text-blue-700">
                   {{ number_format((float)$c->puntos_asignados, 0, ',', '.') }} pts
                 </span>
+              </td>
+              <td class="px-4 py-3 space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-1 text-xs rounded-full border border-amber-200 bg-amber-50 text-amber-700">{{ $c->nivel['nombre'] }}</span>
+                  <span class="text-xs text-slate-500">{{ $c->nivel['progreso'] }}% hacia el próximo nivel</span>
+                </div>
+                @if($c->nivel['siguiente'])
+                  <div class="text-xs text-slate-500">Faltan {{ number_format($c->nivel['siguiente']['faltan'], 0, ',', '.') }} pts para {{ $c->nivel['siguiente']['nombre'] }}</div>
+                @else
+                  <div class="text-xs text-emerald-600">Nivel máximo alcanzado</div>
+                @endif
               </td>
               <td class="px-4 py-3">
                 @if ($c->activo)

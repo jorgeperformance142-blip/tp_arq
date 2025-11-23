@@ -15,6 +15,7 @@ Route::get('/', function () {
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 Route::get('/clientes/segmentacion', [ClientesController::class, 'segmentacion'])->name('clientes.segmentacion');
+Route::get('/clientes/niveles', [ClientesController::class, 'niveles'])->name('clientes.niveles');
 Route::resource('clientes', ClientesController::class);
 
 Route::resource('conceptos-uso', ConceptosUsoController::class)
