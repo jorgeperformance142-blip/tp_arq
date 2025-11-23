@@ -61,7 +61,8 @@ class ClientesController extends Controller
     {
         $data = $this->validated($request);
         $data['activo'] = $request->boolean('activo') ? 1 : 0;
-        $this->svc->crear($data);
+        $codigoReferente = $request->get('codigo_referente');
+        $this->svc->crear($data, $codigoReferente ?: null);
 
         return redirect()->route('clientes.index')->with('ok','Cliente creado.');
     }
@@ -87,6 +88,7 @@ class ClientesController extends Controller
 
         $data = $this->validated($request, $id);
         $data['activo'] = $request->boolean('activo') ? 1 : 0;
+        unset($data['codigo_referente']);
 
         $this->svc->actualizar($id, $data);
         return redirect()->route('clientes.index')->with('ok','Cliente actualizado.');
@@ -100,6 +102,12 @@ class ClientesController extends Controller
 
     private function validated(Request $request, ?int $id = null): array
     {
+        if ($request->filled('codigo_referente')) {
+            $request->merge(['codigo_referente' => trim($request->input('codigo_referente'))]);
+        } else {
+            $request->merge(['codigo_referente' => null]);
+        }
+
         $data = $request->validate([
             'nombre'            => ['required','string','max:120'],
             'apellido'          => ['nullable','string','max:120'],
@@ -126,12 +134,17 @@ class ClientesController extends Controller
             // Si el input viene como YYYY-MM-DD dejá 'date'; si viene DD/MM/YYYY, cambiá a 'date_format:d/m/Y'
             'fecha_nacimiento'  => ['nullable','date'], // o: ['nullable','date_format:Y-m-d']
             // 'activo' se maneja fuera con $request->boolean('activo')
+            'codigo_referente'  => ['nullable','string','max:16','exists:clientes,codigo_referido'],
         ]);
 
         // Normalizaciones útiles
         // Si te llega '' en lugar de null para fecha, lo convertimos a null:
         if (array_key_exists('fecha_nacimiento', $data) && $data['fecha_nacimiento'] === '') {
             $data['fecha_nacimiento'] = null;
+        }
+
+        if (array_key_exists('codigo_referente', $data) && $data['codigo_referente'] === '') {
+            $data['codigo_referente'] = null;
         }
 
         return $data;
